@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="TRPG 卓の CS 提出・前日のお知らせ・セッションルームの共有などを自動で行う Discord Bot「卓通知Bot」の機能とメッセージの一覧。">
+<title>卓通知Bot 仕様書</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Noto+Sans+JP:wght@400;600&family=M+PLUS+1+Code:wght@400;500&display=swap">
+<style>
+/* レイアウト: 左に目次（広い画面では固定）、右に本文。メッセージの例は Discord の吹き出しに見立てる */
+:root {
+  --bg: #f4f6f8; --surface: #ffffff; --fg: #1b2230; --muted: #5a6474; --line: #dde2e9;
+  --accent: #1e6a67; --accent-soft: #e2f0ef; --mention: #4752c4; --mention-bg: #e6e8fd;
+  --msg-bg: #f2f3f5; --link: #0b6bcb; --warn: #9a5b00;
+  --display: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --mono: "M PLUS 1 Code", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12161d; --surface: #1a2029; --fg: #e4e8ee; --muted: #9aa4b2; --line: #2c3442;
+  --accent: #5cc2bb; --accent-soft: #173533; --mention: #c9cdfb; --mention-bg: #3a3f73;
+  --msg-bg: #232833; --link: #6fb6ff; --warn: #f0b45c; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #12161d; --surface: #1a2029; --fg: #e4e8ee; --muted: #9aa4b2; --line: #2c3442;
+  --accent: #5cc2bb; --accent-soft: #173533; --mention: #c9cdfb; --mention-bg: #3a3f73;
+  --msg-bg: #232833; --link: #6fb6ff; --warn: #f0b45c; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.8; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { display: grid; gap: 14px; margin-bottom: 28px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; color: var(--accent); }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(28px, 4vw, 40px); line-height: 1.3; margin: 0; text-wrap: balance; }
+.lead { max-width: 46em; margin: 0; color: var(--muted); }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--surface); overflow: hidden; }
+.facts ul { display: contents; }
+.facts li { list-style: none; padding: 12px 16px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); font-size: 14px; }
+.layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 40px; align-items: start; }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); max-height: calc(100vh - 32px); overflow: auto; font-size: 14px; }
+nav.toc p { margin: 0 0 8px; font-family: var(--mono); font-size: 12px; letter-spacing: .08em; color: var(--muted); }
+nav.toc ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+nav.toc a { display: block; padding: 5px 8px; border-radius: 6px; color: var(--fg); text-decoration: none; line-height: 1.5; }
+nav.toc a:hover, nav.toc a:focus-visible { background: var(--accent-soft); outline: none; }
+main { min-width: 0; }
+main h2 { font-family: var(--display); font-weight: 700; font-size: 24px; line-height: 1.4; margin: 48px 0 12px; padding-top: 18px;
+  border-top: 2px solid var(--fg); text-wrap: balance; scroll-margin-top: 16px; }
+main h2:first-child { margin-top: 0; }
+main h3 { font-family: var(--display); font-weight: 700; font-size: 17px; margin: 28px 0 8px; color: var(--accent); scroll-margin-top: 16px; }
+main p, main li { max-width: 46em; }
+main ul, main ol { padding-left: 1.4em; margin: 8px 0; }
+main li { margin: 3px 0; }
+code { font-family: var(--mono); font-size: .9em; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+a { color: var(--link); }
+strong { font-weight: 600; }
+.scroll { overflow-x: auto; margin: 12px 0 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 1.65; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { font-weight: 600; color: var(--muted); font-size: 13px; background: var(--bg); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+td:first-child { white-space: nowrap; }
+td code { white-space: nowrap; }
+pre.flow { margin: 0; padding: 14px 16px; font-family: var(--mono); font-size: 13px; line-height: 1.7; }
+.msg { background: var(--msg-bg); border-radius: 10px; padding: 12px 16px; margin: 10px 0 18px; max-width: 46em; font-size: 14.5px; line-height: 1.7; overflow-wrap: anywhere; }
+.msg-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); flex: none; }
+.who { font-weight: 600; }
+.tag { font-size: 11px; background: var(--mention); color: var(--surface); padding: 0 6px; border-radius: 4px; line-height: 1.6; }
+.mention { background: var(--mention-bg); color: var(--mention); border-radius: 3px; padding: 0 2px; font-weight: 600; }
+.link { color: var(--link); }
+.note { color: var(--muted); font-size: 12.5px; }
+@media (max-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  nav.toc { position: static; max-height: none; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 12px; }
+  nav.toc ol { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 440px) { nav.toc ol { grid-template-columns: 1fr; } td:first-child { white-space: normal; } }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
+html { color-scheme: light; } body { margin: 0; }
+@media (prefers-color-scheme: dark) { html { color-scheme: dark; } }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">TRPG 卓の Discord Bot ／ 仕様書</div>
+    <h1>卓通知Bot 仕様書</h1>
+    <p class="lead">GM が回す TRPG 卓について、CS 提出の管理、セッション前のお知らせ、セッションルーム（ココフォリアなど）の URL の共有、Notion の記録の更新を自動で行う Discord Bot の仕様です。セットアップの手順は README.md を見てください。</p>
+    <div class="facts">
+<ul><li>動く場所：Cloudflare Workers（無料プラン）</li><li>データの置き場：Notion（卓予定・卓参加者・セッション日程・やることリスト・卓報告）</li><li>日程の照合先：Google カレンダー（iCal の非公開 URL で読み取り専用。使わなくてもよい）</li><li>時刻：すべて設定のタイムゾーン（既定は日本時間）の現地時刻で扱う</li><li>使う人：GM 1人につき Bot を1つ動かす。コマンドとボタンを使えるのは GM（<code>GM_USER_ID</code>）だけ</li><li>動き方：Discord のスラッシュコマンド <code>/卓</code>、10分おきの定期確認、毎朝9時の確認、セットアップ画面（<code>/setup</code>）</li></ul>
+</div>
+  </header>
+  <div class="layout">
+    <nav class="toc" aria-label="目次"><p>目次</p><ol>
+<li><a href="#s1">1. 機能一覧</a></li><li><a href="#s2">2. Notion のデータ</a></li><li><a href="#s3">3. スラッシュコマンド /卓</a></li><li><a href="#s4">4. 定期確認（10分おき）</a></li><li><a href="#s5">5. 毎朝の確認（9時）</a></li><li><a href="#s6">6. 送るメッセージ</a></li><li><a href="#s7">7. 状況（卓予定の「状況」）の動き</a></li><li><a href="#s8">8. セットアップ画面（/setup）</a></li><li><a href="#s9">9. 設定</a></li><li><a href="#s10">10. 秘密の値・保存するもの・制約</a></li>
+</ol></nav>
+    <main>
+<h2 id="s1">1. 機能一覧</h2>
+<h3 id="s1-1">卓の準備</h3>
+<div class="scroll"><table><thead><tr><th>#</th><th>機能</th><th>きっかけ</th><th>相手</th></tr></thead><tbody><tr><td>1</td><td>卓と Discord の連携、参加者の登録</td><td><code>/卓 連携</code></td><td>GM</td></tr><tr><td>2</td><td>CS 提出の要否の切り替え（要らない卓は催促しない）</td><td><code>/卓 連携</code> の cs提出</td><td>GM</td></tr><tr><td>3</td><td>セッション日程の取り込み（カレンダーから一度だけ）</td><td><code>/卓 連携</code></td><td>GM</td></tr><tr><td>4</td><td>「〇〇準備」タスクの追加</td><td><code>/卓 連携</code></td><td>GM</td></tr><tr><td>5</td><td>秘匿の送り先（スレッドかテキストチャンネル）の登録</td><td><code>/卓 秘匿</code></td><td>GM</td></tr><tr><td>6</td><td>セッションルームの URL の登録・今すぐ送る</td><td><code>/卓 部屋登録</code> <code>/卓 部屋送信</code></td><td>GM・プレイヤー</td></tr><tr><td>7</td><td>卓情報（日程・CS提出日・概要）を確認してから送る</td><td><code>/卓 案内</code></td><td>プレイヤー</td></tr><tr><td>8</td><td>セッション日程の回の追加・中止・通知しない・リスケ</td><td><code>/卓 日程</code></td><td>GM</td></tr></tbody></table></div>
+<h3 id="s1-2">CS の提出</h3>
+<div class="scroll"><table><thead><tr><th>#</th><th>機能</th><th>きっかけ</th><th>相手</th></tr></thead><tbody><tr><td>9</td><td>CS の提出の自動検出（URL を貼るだけ）</td><td>定期確認</td><td>プレイヤー</td></tr><tr><td>10</td><td>CS の催促（未提出の人だけ）</td><td>定期確認</td><td>プレイヤー</td></tr><tr><td>11</td><td>全員提出・期限超過の知らせ</td><td>定期確認</td><td>GM</td></tr><tr><td>12</td><td>提出状況の手動切り替え・状況の表示</td><td><code>/卓 提出</code> <code>/卓 状況</code></td><td>GM</td></tr></tbody></table></div>
+<h3 id="s1-3">セッション</h3>
+<div class="scroll"><table><thead><tr><th>#</th><th>機能</th><th>きっかけ</th><th>相手</th></tr></thead><tbody><tr><td>13</td><td>前日のお知らせ（回ごと。登録済みならお部屋の URL も）</td><td>定期確認</td><td>プレイヤー</td></tr><tr><td>14</td><td>開始前のお知らせ（初回の30分前。まだならお部屋の URL も）</td><td>定期確認</td><td>プレイヤー</td></tr><tr><td>15</td><td>卓予定の「状況」の自動更新</td><td>定期確認・コマンド</td><td>—</td></tr><tr><td>16</td><td>準備タスクの自動完了</td><td>定期確認</td><td>GM</td></tr><tr><td>17</td><td>卓の終了、卓報告の作成、セッション日程の片付け</td><td><code>/卓 終了</code></td><td>GM</td></tr></tbody></table></div>
+<h3 id="s1-4">見落とし防止</h3>
+<div class="scroll"><table><thead><tr><th>#</th><th>機能</th><th>きっかけ</th><th>相手</th></tr></thead><tbody><tr><td>18</td><td>卓予定と Google カレンダーの照合</td><td>毎朝9時・<code>/卓 照合</code></td><td>GM</td></tr><tr><td>19</td><td>流卓予定日の知らせ（2週間前・当日・1か月後）</td><td>毎朝9時・<code>/卓 照合</code></td><td>GM</td></tr><tr><td>20</td><td>仮立卓（チャンネルだけある卓）の紐づけと、流卓予定日でのリマインド</td><td><code>/卓 チャンネル</code>・毎朝9時・ボタン</td><td>GM・プレイヤー</td></tr></tbody></table></div>
+<h3 id="s1-5">管理</h3>
+<div class="scroll"><table><thead><tr><th>#</th><th>機能</th><th>きっかけ</th><th>相手</th></tr></thead><tbody><tr><td>21</td><td>既定の管理先（GM 向け通知の送り先）の設定</td><td><code>/卓 既定管理先</code></td><td>GM</td></tr><tr><td>22</td><td>セットアップ（入力漏れの確認、DB の作成、コマンドの登録、設定、文面の変更）</td><td><code>/setup</code></td><td>GM</td></tr></tbody></table></div>
+<h2 id="s2">2. Notion のデータ</h2>
+<div class="scroll"><table><thead><tr><th>DB</th><th>Bot が読むもの</th><th>Bot が書くもの</th></tr></thead><tbody><tr><td>卓予定</td><td>シナリオ名、卓ID、状況、PL/GM、GM、PL、場所、システム、カレンダー表記、セッション日時、CS期日、ココフォリアURL、概要URL、告知先、管理先、URL、流卓予定日、参加者</td><td>状況、告知先、管理先、CS期日（<code>/卓 連携</code> で指定したとき）、ココフォリアURL（<code>/卓 部屋登録</code>）、概要URL（<code>/卓 案内</code>）、流卓予定日（仮立卓で空のとき・［続ける］のとき）</td></tr><tr><td>セッション日程</td><td>名前、卓、日時（開始〜終了）、中止、通知しない</td><td>連携時の取り込み、<code>/卓 日程</code> での追加・中止・通知しない・日時の変更、<code>/卓 終了</code> でゴミ箱へ</td></tr><tr><td>卓参加者</td><td>名前、卓、Discord ID、提出済み、CS URL、提出日時、秘匿スレッド</td><td>参加者の追加、提出の記録、秘匿の送り先</td></tr><tr><td>やることリスト</td><td>やること、ステータス</td><td>「〇〇準備」の追加、準備タスクの完了</td></tr><tr><td>卓報告</td><td>URL（同じシナリオの前の卓報告から探すとき）</td><td><code>/卓 終了</code> で1行追加</td></tr></tbody></table></div>
+<ul><li><strong>Bot は卓予定の「PL」欄と「セッション日時」を書き換えない。</strong></li><li>卓予定の「CS提出」（例：<code>3/5</code>）は、卓参加者の「提出済み」から Notion が計算する。</li><li>「卓参加者」の名前を直すと、<code>/卓 状況</code>、GM あての通知、卓報告の PL にそのまま反映される。</li><li>やることリストと卓報告は無くても動く（DB の指定が無ければ、準備タスクの追加・完了と卓報告の作成を飛ばす）。</li><li>卓予定の「URL」「流卓予定日」、卓報告の「URL」の列は、無い DB でも動く（その部分だけ飛ばす）。</li><li>「状況」とやることリストの「ステータス」は、ステータス型でもセレクト型でも読み書きできる（DB の列の型を一度読んで合わせる）。</li><li>列名の前後の空白は無視する（Notion の列が「 PL」でも「PL」として扱う）。</li><li>列名や「状況」の値が違う DB は、セットアップ画面の設定で読み替えられる（9.）。</li></ul>
+<h3 id="s2-1">対象になる卓</h3>
+<ul><li><strong>コマンドの「卓」欄の候補</strong>：卓予定の「PL/GM」が KP・GM・DL・SKP のどれかで、状況が「完了」「流卓」以外の卓。</li><li><strong>定期確認の通知</strong>：上のうち、告知先が入っていて（<code>/卓 連携</code> か <code>/卓 チャンネル</code> 済み）、状況が日程決定前でない卓。</li><li><strong>照合・流卓予定日の知らせ</strong>：状況が「完了」「流卓」以外のすべての卓（PL として参加する卓も含む）。</li><li><strong>日程決定前の状況</strong>（既定）：そのうち・メンバー募集中・GM宛なし・仮約束・メンバー調整中・日程打診様子見・日程調整待ち・日程調整入力待ち。</li></ul>
+<h2 id="s3">3. スラッシュコマンド <code>/卓</code></h2>
+<ul><li>使えるのは GM（<code>GM_USER_ID</code>）だけ。ほかの人が打つと「このコマンドはGM専用です」と返す。</li><li>返事は打った人にだけ見える。返事の中のメンションは通知を飛ばさない。</li></ul>
+<h3 id="s3-1">「卓」欄の候補</h3>
+<ul><li>Bot が入っているすべてのサーバーの卓を出す（どのサーバーで打っても同じ）。</li><li><code>/卓 連携</code> と <code>/卓 チャンネル</code>：卓予定の「場所」が、Bot の入っているサーバーのどれかの名前と一致する卓（まだつないでいない卓も出る）。今いるサーバーの卓が先、ほかのサーバーの卓には［サーバー名］、「場所」が空の卓は「（場所未入力）」を付けて後ろに出す。</li><li>ほかのコマンド：告知先が入っている卓。</li><li>候補から選ばずに送っても、<code>TAKU-12</code> のような卓ID か、1つに決まるシナリオ名なら卓を探す。</li><li>候補を3秒以内に出すため、卓の一覧を1分、Bot のサーバー一覧を10分だけ覚えておく。</li></ul>
+<h3 id="s3-2">コマンドの一覧</h3>
+<div class="scroll"><table><thead><tr><th>コマンド</th><th>入力欄</th><th>すること</th></tr></thead><tbody><tr><td><code>/卓 連携</code></td><td>卓・参加者・cs提出・cs期日・告知先・管理先</td><td>3.1 を参照</td></tr><tr><td><code>/卓 チャンネル</code></td><td>卓・チャンネル</td><td>仮立卓のテキストチャンネル（省略時は打ったチャンネル）を卓予定の「告知先」に入れる。状況は変えない。日程決定前の卓で流卓予定日が空なら、チャンネル作成日の1年後を入れる。あとで <code>/卓 連携</code> で告知先を省くと、同じサーバーならこのチャンネルを使う</td></tr><tr><td><code>/卓 秘匿</code></td><td>卓・プレイヤー・送り先</td><td>参加者の秘匿の送り先（スレッドか、別のテキストチャンネル）を卓参加者の「秘匿スレッド」列に入れる。その人への CS の催促はここに送り、ここに貼られた CS も受け付ける。Bot が見られなければ直し方を出す。DM は指定できない</td></tr><tr><td><code>/卓 部屋登録</code></td><td>卓・url</td><td>セッションルームの URL（<code>http(s)://</code> から始まるもの。ココフォリアなど）を卓予定の「ココフォリアURL」に入れる。状況は変えない。いつ送るかを返す（3.2）</td></tr><tr><td><code>/卓 部屋送信</code></td><td>卓・メンション</td><td>登録済みのセッションルームの URL を今すぐ告知先に送る。メンション＝はいなら参加者全員にメンション。送ったら、開始前のお知らせには URL を付けない</td></tr><tr><td><code>/卓 提出</code></td><td>卓・プレイヤー・状態</td><td>「提出済み」を手で切り替える。提出済みにしたとき提出日時が空なら今の時刻を入れる</td></tr><tr><td><code>/卓 状況</code></td><td>卓</td><td>状況・各回の日程・CS期日（CS 提出が無い卓は「CS提出: なし」）・セッションルームの URL・参加者ごとの提出状況（✅／❌ と CS URL）を表示</td></tr><tr><td><code>/卓 案内</code></td><td>卓・概要・送り先・メンション・概要を載せる</td><td>卓情報を、まず自分にだけ見せ、［送信］で送る（6.3）</td></tr><tr><td><code>/卓 日程</code></td><td>卓・回・操作・日時</td><td>3.3 を参照</td></tr><tr><td><code>/卓 終了</code></td><td>卓・url</td><td>3.4 を参照</td></tr><tr><td><code>/卓 照合</code></td><td>—</td><td>卓予定とカレンダーの相違と、知らせる時期に入っている流卓予定日を一覧にする（5.1・5.2）</td></tr><tr><td><code>/卓 既定管理先</code></td><td>管理先</td><td>管理先を指定していない卓の GM 向け通知と、毎朝の照合結果の送り先を決める。空で実行すると消して DM に戻す</td></tr></tbody></table></div>
+<h3 id="s3-3">3.1 連携（<code>/卓 連携</code>）</h3>
+<ol><li><strong>cs提出</strong>（はい／いいえ）：いいえ にすると、CS の提出が要らない卓として扱う。<ul><li>CS の検出・催促・期限超過の知らせをせず、状況を「セッション開始待ち」にする。</li><li>参加者を「提出済み」にする（連携で足す人も、すでにいる人も）。</li><li>準備タスクは、セッションルームの URL が登録されたら完了にする。</li><li><code>/卓 状況</code> は「CS提出: なし」、<code>/卓 案内</code> は ▼CS提出日 の段落を省く。</li><li>省略したら前回のまま（初めての卓は「要る」）。いいえ から はい に戻すと「CS待ち」に戻す（提出済みのチェックは外さない）。</li></ul></li><li><strong>参加者の登録</strong>（卓参加者 DB に1人1行。すでにいる人は重ねない）<ul><li>参加者欄に <code>たろう @Taro</code> のように名前と <code>@</code> を組で書くと、その名前で登録する（<code>=</code> <code>:</code> 区切りも可）。</li><li><code>@</code> だけなら、卓予定の PL 欄のどの名前に当たるかを探し、当たらなければ Discord の表示名で登録する。</li><li>参加者欄が空なら、PL 欄の名前から探す（GM 本人と「未定」「募集」を含む書き込みは除く）。<ol><li>以前「卓参加者」に登録したことがある名前なら、その Discord アカウント</li><li>卓の「場所」のサーバーで、ニックネーム・表示名・ユーザー名が合うメンバー（完全一致を優先、なければ名前を含む人。ひらがな／カタカナ、全角／半角、絵文字・記号の違いは無視。2文字未満は部分一致させない）</li><li>1人に決まらなければ、候補と一緒に「決められなかった人」として返す</li></ol></li><li>結果に <code>たろう ＝ @Taro</code> の形で、誰を誰として登録したかを表示する。</li></ul></li><li><strong>告知先・管理先</strong>：告知先を省くと、<code>/卓 チャンネル</code> でつないだチャンネル（同じサーバーのとき）、それも無ければ打ったチャンネル。Bot が見られなければ直し方を出す。</li><li><strong>セッション日程の取り込み</strong>：「セッション日程」にこの卓の行が1件も無ければ、カレンダーの今後の予定から一度だけ取り込む（名前は「シナリオ名 1日目」など。1回だけならシナリオ名）。前の回の翌日の回には最初から「通知しない」を付ける（連日の卓で、翌日の回の前日のお知らせが前の回より先に届くのを防ぐ）。以後は <code>/卓 日程</code> のとき以外、Bot は書き換えない。</li><li><strong>CS期日</strong>：初回のセッションからの日数（候補：当日・前日・2日前・3日前・1週間前。<code>N日前</code> <code>N週間前</code> も可）か、<code>20261020</code>、<code>20261020 2100</code>、<code>10/20 21:00</code>、<code>10月20日 21時</code> などの日付で指定し、卓予定の「CS期日」に実際の日付で書く。日数のときは時刻なし（その日の終わりが期限）。初回が無い卓では日数は使えない。年を省いて1か月以上前になる日付は来年とみなす。CS 提出が無い卓では使わない。</li><li><strong>状況</strong>：「CS待ち」「セッション開始待ち」「セッション中」以外なら「CS待ち」にする。cs期日を指定したときは（「セッション中」以外なら）「CS待ち」に戻す。</li><li><strong>準備タスク</strong>：やることリストに同じシナリオのタスクが（完了済みも含めて）1件も無ければ、「シナリオ名準備」を足す。カテゴリ TRPG、ステータス 未着手、期日は初回の1週間前、卓へのリレーション付き。</li><li><strong>注意の表示</strong>：場所と打ったサーバーの違い、Bot が場所のサーバーにいない、場所が未入力、Bot がチャンネルを見られない、CS期日が無い、日程が無い、初回に時刻が無い。</li></ol>
+<h3 id="s3-4">3.2 セッションルーム（<code>/卓 部屋登録</code> の返事）</h3>
+<ul><li>前日のお知らせがまだ：「前日のお知らせ（日時）に付けて送ります」</li><li>前日のお知らせのあと：「開始前のお知らせ（日時、メンションなし）に付けて送ります」（その時刻を過ぎていれば「10分以内に…」）</li><li>もう送ってある：「参加者にはもう URL を送ってあるので、自動では送りません」</li><li>初回に時刻が無い：「自動では送りません」</li><li>どれも「今すぐ送るときは /卓 部屋送信 を使ってください」を添える。</li></ul>
+<h3 id="s3-5">3.3 日程（<code>/卓 日程</code>）</h3>
+<ul><li>「回」の候補は、選んだ卓の全回（中止・通知なしの印つき）と、いちばん上の「＋ 新しい回を追加」。</li><li><strong>操作</strong>：中止にする／中止をやめる／通知しない／通知する。</li><li><strong>日時</strong>：入れるとその回をリスケする（終了は決まりどおり入れ直す）。</li><li><strong>回の追加</strong>：「＋ 新しい回を追加」と「日時」で、「シナリオ名 N日目」の回を作る。終了は決まりどおり。前の回の翌日なら「通知しない」を付ける（操作で 通知する／通知しない を選べばそれに従う）。行が無く卓予定の「セッション日時」で動いている卓は、その回も1日目として行にしてから足す。</li><li>状況が「セッション中」でも使える。変えた内容は次の定期確認（10分以内）から通知に反映する。</li></ul>
+<h3 id="s3-6">3.4 終了（<code>/卓 終了</code>）</h3>
+<ol><li>状況を「完了」にする（以後、通知・照合の対象外）。セッションルームの URL を送った記録を消す。</li><li>卓報告に1行作る：<ul><li>シナリオ、日付（初日＝セッション日程のいちばん早い回。無ければ卓予定のセッション日時）</li><li>GM、PL（卓参加者の名前を「、」でつなぐ）</li><li>システム（書き換え表と選択肢で直す。9. の <code>REPORT_SYSTEM_*</code>）、PL/GM、卓予定へのリレーション</li><li>URL（卓報告に URL の列があるとき）：url 欄の値 → 卓予定の「URL」 → 同じシナリオの前の卓報告の URL の順</li></ul></li><li>卓報告を作ったら、その卓の「セッション日程」の行（中止の回も含む）を Notion のゴミ箱に移す（Notion から元に戻せる）。卓報告を使っていないときは消さない。</li><li>何日かに分けた卓は、最終日が終わってから実行する。</li></ol>
+<h2 id="s4">4. 定期確認（10分おき）</h2>
+<p>告知先が入っている卓（日程決定前の卓は除く）ごとに、上から順に行う。1つの卓でエラーが出ても、ほかの卓は続ける。</p>
+<h3 id="s4-1">4.1 CS（状況が「CS待ち」で、CS 提出が要る卓だけ）</h3>
+<ol><li><strong>提出の検出</strong>：告知先チャンネルと秘匿の送り先の直近50件のメッセージから、参加者が貼った CS の URL を探す。<ul><li>受け付けるサイト：いあきゃら（iachara.com）、Charaeno（charaeno.com）、キャラクター保管所（charasheet.vampire-blood.net）、キャラクターシート倉庫（character-sheets.appspot.com）、ゆとシートⅡ（yutorize.work、yutorize.2-d.jp）、キャラッシュ（charash.jp、charasheet.jp）、vinsanet（vinsanet.com）、Google スプレッドシート（docs.google.com）。設定で足せる。</li><li>見つけたら、卓参加者に提出済み・CS URL・提出日時・メッセージへのリンクを書き、メッセージに 📥（受け取りました）を付ける。📥 は受け付けた印で、中身を確かめた意味ではない。</li><li>再提出（前の提出より新しいメッセージ）なら上書きする。📥 か以前の ✅ が付いたメッセージは読み飛ばす。</li><li>テキストで貼られた CS は検出しない（<code>/卓 提出</code> か Notion で手動）。</li></ul></li><li><strong>全員提出</strong>：参加者が1人以上いて全員提出済みなら、状況を「セッション開始待ち」にし、GM に知らせる（セッションルームの URL が未登録ならあわせて知らせる）。</li><li><strong>催促</strong>：CS期日の1週間前20時・3日前20時・当日8時（既定）に、未提出の人だけをメンションして催促する。秘匿の送り先がある人にはそこで1人ずつ。期限を過ぎたら GM に未提出の人を知らせる。<ul><li>各段階は1回だけ。連携が遅れて複数の段階を過ぎていたら、いちばん新しい段階だけ送る。</li><li>期日に時刻があればその時刻が期限、日付だけならその日の終わり。朝より早い期限でも、当日分は期限の2時間前までに送る。</li><li>CS期日を変えると、新しい期日で数え直す。</li></ul></li></ol>
+<h3 id="s4-2">4.2 準備タスクの自動完了</h3>
+<p>CS が全員分そろい（CS 提出が無い卓は見ない）、セッションルームの URL が登録され、状況が「セッション開始待ち」か「セッション中」の卓について、やることリストの未完了タスクのうちシナリオ名の合うものが1件だけなら「完了」にして GM に知らせる。複数あれば完了にせず候補を知らせる。卓ごとに1回だけ。</p>
+<h3 id="s4-3">4.3 セッションの通知（日程は「セッション日程」DB）</h3>
+<ul><li>「中止」の回は無かったものとして扱う（通知しない。初回の判定からも外す）。</li><li>「通知しない」の回は日程として残すが、前日のお知らせを送らない。初回が「通知しない」なら開始前のお知らせも送らない。</li><li>「セッション日程」に行が1件も無い卓は、卓予定の「セッション日時」を1回分として使う。</li><li>「日時」は開始〜終了。Bot が回を作るとき（取り込み・追加・リスケ）の終了は、18時以降開始ならその日の24時、それより前なら18時（既定）。手で直した終了はそのまま使う。</li><li><strong>前日のお知らせ</strong>：各回の前日20時から開始までの間に1回、参加者全員をメンションして送る（日付だけの回はその日いっぱいまで）。その時点でセッションルームの URL が登録済みなら一緒に付け、「送った」と記録する（2日目以降の回にも付ける）。URL が未登録でまだ送っていなければ、GM に知らせる。</li><li><strong>開始前のお知らせ</strong>：初回の開始30分前から開始2時間後までの間に1回だけ、メンションなしで送る。セッションルームの URL をまだ送っていなければ URL を付け、送ってあるか未登録なら URL なしで送る。初回に時刻が無い卓には送らない。2日目以降は送らない。</li><li><strong>セッション中</strong>：初回の開始時刻を過ぎたら、状況が「セッション開始待ち」の卓を「セッション中」にする。</li><li>リスケ（日時の書き換え）をしたら、新しい日時で送り直す（送った記録は回の日時ごと）。</li><li>予定より早く終わったら <code>/卓 終了</code> で残りの通知をすべて止める。</li></ul>
+<h3 id="s4-4">4.4 夜間（23時〜8時、既定）</h3>
+<ul><li>参加者向けの通知（CS の催促・前日のお知らせ・開始前のお知らせ）は送らない。催促と前日のお知らせは8時以降に送る。開始前のお知らせは、夜間に送る時刻が来る卓（深夜・早朝に始まる卓）では送られない。</li><li>GM あての通知（全員提出・期限超過・準備タスク）は夜間も送る。URL 未登録の知らせは前日のお知らせと一緒に出すので、朝まで待つ。</li></ul>
+<h2 id="s5">5. 毎朝の確認（9時）</h2>
+<p>照合結果（5.1・5.2）は、既定の管理先（無ければ GM の DM）に1通にまとめて送る。何も無ければ送らない。</p>
+<h3 id="s5-1">5.1 カレンダーとの照合（カレンダーを使うときだけ）</h3>
+<p>完了・流卓以外の卓予定（PL の卓も含む）と、カレンダーの今日から180日先までの予定を比べ、次を知らせる。</p>
+<ul><li>予定があるのに、状況が日程決定前のまま</li><li>状況が「CS待ち」「セッション開始待ち」「セッション中」なのに、今後の予定が無い</li><li>カレンダーの予定に当たる卓予定が無い（同じシナリオはいちばん近い日付で1件）</li><li>次の予定の説明欄の GM・PL が卓予定と違う（説明欄の <code>GM：</code> <code>PL：</code>。PL に「未定」「募集」があれば PL は比べない）</li><li>カレンダーに繰り返し予定がある（2回目以降は読めない）</li></ul>
+<p><strong>予定と卓の結び付け方</strong>：予定名とシナリオ名（＋「カレンダー表記」に <code>|</code> 区切りで書いた別名）を、全角／半角・大文字／小文字・空白・記号を無視して比べる。完全一致、名前を含む（3文字以上）、または副題を省いた書き方（6文字以上で、短い方の文字が同じ順番で長い方に含まれる）を同じ卓とみなす。</p>
+<h3 id="s5-2">5.2 流卓予定日の知らせ</h3>
+<p>卓予定の「流卓予定日」が入っていて、流卓・完了になっていない卓（PL の卓も含む）について、次の3回だけ照合結果に載せる。カレンダーを使っていなくても載せる。</p>
+<ul><li>流卓予定日の14日前（既定）</li><li>流卓予定日の当日（過ぎた日）。仮立卓は 5.3 のボタン付きの知らせを送るので、照合結果には載せない</li><li>過ぎて30日（既定）たってもそのまま</li></ul>
+<p>送った段階は流卓予定日ごとに記録する（日付を変えたら知らせ直す）。すでに先の段階にある卓は、今の段階だけを1回載せる。<code>/卓 照合</code> では記録せず、今の段階をそのまま出す。</p>
+<h3 id="s5-3">5.3 仮立卓のリマインド</h3>
+<ul><li><strong>仮立卓</strong>：告知先（チャンネル）がつながっていて、状況が日程決定前の卓。4. の通知は送らない。</li><li>流卓予定日が空なら、チャンネルの作成日（チャンネル ID から読む）の365日後（既定）を書き込む（<code>/卓 チャンネル</code> のときと、毎朝の確認で。入っている日付は変えない）。照合より先に行う。</li><li>流卓予定日の日になったら、GM 向けの送り先に、［PL に知らせる］［続ける（もう1年待つ）］のボタン付きで知らせる。流卓予定日ごとに1回だけ。</li><li><strong>PL には自動では知らせない。</strong> GM が［PL に知らせる］を押したときだけ、卓のチャンネルで、PL 欄の名前から探したメンバーをメンションして知らせる（見つからない人には付けない）。1回だけ。押したあとも［続ける］は残す。</li><li>［続ける］を押すと、流卓予定日を今日の365日後（既定）に書き換え、また最初から知らせる。</li></ul>
+<h2 id="s6">6. 送るメッセージ</h2>
+<p>例はすべて「霧の館」（TAKU-12）です。<code>@名前</code> は実際には Discord のメンション、<code><strong>〜</strong></code> は太字、<code>~~〜~~</code> は取り消し線、<code>#チャンネル</code> はチャンネルへのリンクとして表示されます。文面はセットアップ画面で変えられます（8.）。ここに書いているのは既定の文面です。</p>
+<h3 id="s6-1">6.1 送り先とメンションの決まり</h3>
+<div class="scroll"><table><thead><tr><th>種類</th><th>送り先</th><th>メンション（通知が飛ぶ人）</th></tr></thead><tbody><tr><td>プレイヤー向けの自動通知</td><td>卓の告知先。CS の催促だけ、秘匿の送り先がある人はそこ</td><td>CS の催促は未提出の人、前日のお知らせは参加者全員。開始前のお知らせはなし</td></tr><tr><td>卓情報（<code>/卓 案内</code>）・お部屋（<code>/卓 部屋送信</code>）</td><td>送り先（省略時は告知先）</td><td>メンション＝はいのときだけ参加者全員</td></tr><tr><td>仮立卓の PL への知らせ</td><td>卓のチャンネル</td><td>PL 欄の人（GM がボタンを押したとき）</td></tr><tr><td>GM 向けの通知</td><td>卓の管理先 → 既定の管理先 → GM への DM の順で、最初に決まっているところ</td><td>CS 期日を過ぎた・URL が未登録の知らせだけ、チャンネルに送るとき GM をメンションする（DM はもともと通知が来る）</td></tr><tr><td>毎朝の照合結果</td><td>既定の管理先 → GM への DM</td><td>なし</td></tr><tr><td>コマンドの返事</td><td>打った人にだけ見える</td><td>なし</td></tr></tbody></table></div>
+<ul><li>自動通知は同じ内容を二度送らない（回の日時・期日ごとに送った記録を残す）。</li></ul>
+<h3 id="s6-2">6.2 プレイヤー向けの自動通知</h3>
+<p><strong>CS の催促</strong>（未提出の人だけ）</p>
+<div class="msg"><div class="msg-head"><span class="avatar" aria-hidden="true"></span><span class="who">卓通知Bot</span><span class="tag">アプリ</span></div><div class="msg-body"><span class="mention">@じろう</span> <span class="mention">@たろう</span><br>「霧の館」のCS提出期日は <strong>10/20(火)</strong> です。CSのURLをこのチャンネルに貼ってください。</div></div>
+<p>期日に時刻があれば <code><strong>10/20(火) 21:00</strong></code> のように時刻も書く。</p>
+<p><strong>前日のお知らせ</strong>（参加者全員）</p>
+<div class="msg"><div class="msg-head"><span class="avatar" aria-hidden="true"></span><span class="who">卓通知Bot</span><span class="tag">アプリ</span></div><div class="msg-body"><span class="mention">@はなこ</span> <span class="mention">@じろう</span> <span class="mention">@たろう</span><br>【前日のお知らせ】「霧の館」は <strong>10/17(土) 21:00</strong> からです。よろしくお願いします！<br>お部屋はこちらです。<br><span class="link">https://ccfolia.com/rooms/xxxxx</span></div></div>
+<p>最後の2行は、その時点でセッションルームの URL が登録済みのときだけ。</p>
+<p><strong>開始前のお知らせ</strong>（初回の30分前、メンションなし）</p>
+<div class="msg"><div class="msg-head"><span class="avatar" aria-hidden="true"></span><span class="who">卓通知Bot</span><span class="tag">アプリ</span></div><div class="msg-body">【まもなく開始】「霧の館」のお部屋はこちらです。<br><span class="link">https://ccfolia.com/rooms/xxxxx</span></div></div>
+<p>URL をもう送ってある（前日のお知らせ・<code>/卓 部屋送信</code>）か未登録なら：</p>
+<div class="msg"><div class="msg-head"><span class="avatar" aria-hidden="true"></span><span class="who">卓通知Bot</span><span class="tag">アプリ</span></div><div class="msg-body">【まもなく開始】「霧の館」はまもなく開始です。よろしくお願いします！</div></div>
+<p><strong>お部屋（<code>/卓 部屋送信</code>）</strong></p>
+<div class="msg"><div class="msg-head"><span class="avatar" aria-hidden="true"></span><span class="who">卓通知Bot</span><span class="tag">アプリ</span></div><div class="msg-body">「霧の館」のお部屋はこちらです。<br><span class="link">https://ccfolia.com/rooms/xxxxx</span></div></div>
+<p><strong>仮立卓の PL への知らせ</strong>（GM が［PL に知らせる］を押したとき）</p>
+<div class="msg"><div class="msg-head"><span class="avatar" aria-hidden="true"></span><span class="who">卓通知Bot</span><span class="tag">アプリ</span></div><div class="msg-body"><span class="mention">@たろう</span> <span class="mention">@はなこ</span><br>「霧の館」のチャンネルを作ってから380日（2025/10/01(水) 作成）が経ちました。この卓をどうするか、GM と相談させてください。</div></div>
+<p><strong>CS の受け付け</strong>：CS の URL を貼ったメッセージに 📥 のリアクションを付ける（文章は送らない）。</p>
+<h3 id="s6-3">6.3 卓情報（<code>/卓 案内</code>）</h3>
+<div class="msg"><div class="msg-head"><span class="avatar" aria-hidden="true"></span><span class="who">卓通知Bot</span><span class="tag">アプリ</span></div><div class="msg-body"><span class="mention">@はなこ</span> <span class="mention">@じろう</span> <span class="mention">@たろう</span>          <span class="note">← メンション＝はい のときだけ</span><br>▼日程<br>2026/10/17(土) 21:00〜24:00<br><s>2026/10/25(日) 21:00〜24:00</s>（中止）<br>※状況によって前後する場合はご相談<br>&nbsp;<br>▼CS提出日<br>2日前 2026/10/15(木)<br>&nbsp;<br>▼概要<br><span class="link">https://discord.com/channels/…</span><br>上記をご参照ください</div></div>
+<ul><li><strong>▼日程</strong>：「セッション日程」の全件を開始〜終了で1行ずつ。中止の回は取り消し線と「（中止）」。終了が空の回は決まりで表示。行が無ければ卓予定の「セッション日時」、それも無ければ「未定」。日程が未定なら「※状況によって…」の行は載せない。</li><li><strong>▼CS提出日</strong>：初回からの日数（当日・前日・N日前・N週間前）と日付。CS期日が無ければ「未定」。CS 期日を過ぎた卓と CS 提出が無い卓は、段落ごと省く。</li><li><strong>▼概要</strong>：概要URL があるときだけ。「概要を載せる」をいいえにすると省く（概要URL は消さない）。</li><li>送る前に、打った人にだけ「#送り先 に次の内容を送ります。よければ［送信］を押してください。」と文面、［送信］［やめる］のボタンを出す。［送信］で Notion を読み直して最新の内容で送り、「#送り先 に卓情報を送りました。」に変わる。［やめる］で「送るのをやめました。」。</li><li>文面は1つの雛形で、<code>{schedule}</code> <code>{note}</code> <code>{cs}</code> <code>{summary}</code> <code>{title}</code> を差し込む。差し込みの無い段落・行は省く（上の決まりのとおり）。</li></ul>
+<h3 id="s6-4">6.4 GM 向けの通知</h3>
+<p>先頭に <code>［TAKU-12 霧の館］</code> を付ける。「メンション」が ○ のものは、管理先のチャンネルに送るとき、さらに先頭に <code>@GM</code> を付ける。</p>
+<div class="scroll"><table><thead><tr><th>いつ</th><th>文面</th><th>メンション</th></tr></thead><tbody><tr><td>全員の CS がそろった</td><td>全員のCSがそろいました。状況を「セッション開始待ち」にしました。</td><td>—</td></tr><tr><td>全員の CS がそろった（URL 未登録）</td><td>全員のCSがそろいました。状況を「セッション開始待ち」にしました。部屋のURLがまだ登録されていません（/卓 部屋登録）。</td><td>○</td></tr><tr><td>CS 期日を過ぎた</td><td>CS期日（10/20(火)）を過ぎました。未提出: たろう</td><td>○</td></tr><tr><td>前日のお知らせのとき URL が未登録</td><td>明日がセッションですが、部屋のURLがまだ登録されていません。</td><td>○</td></tr><tr><td>準備タスクを完了にした</td><td>CSと部屋がそろったので、やることリストの「霧の館準備」を完了にしました。</td><td>—</td></tr><tr><td>準備タスクを完了にした（CS 提出が無い卓）</td><td>部屋のURLが登録されたので、やることリストの「霧の館準備」を完了にしました。</td><td>—</td></tr><tr><td>準備タスクが複数あった</td><td>やることリストに同じシナリオのタスクが複数あるので、完了にしていません: 「…」、「…」</td><td>—</td></tr><tr><td>仮立卓の流卓予定日になった</td><td>テキストチャンネル #霧の館（2025/10/01(水) 作成）の流卓予定日（10/1(木)）になりましたが、まだ日程が決まっていません。続けるか、流卓にするかを決めてください。PL にも知らせるときは［PL に知らせる］を押してください。（［PL に知らせる］［続ける（もう1年待つ）］のボタン付き）</td><td>—</td></tr></tbody></table></div>
+<p>ボタンを押したあとは、知らせの下に結果が付く：「→ #霧の館 で PL に知らせました（2人にメンション）。」「→ 続けます。流卓予定日を 2027/10/20(水) にしました。」</p>
+<p><strong>毎朝の照合結果</strong>（何かあるときだけ。2000文字を超える分は件数だけ）</p>
+<div class="msg"><div class="msg-head"><span class="avatar" aria-hidden="true"></span><span class="who">卓通知Bot</span><span class="tag">アプリ</span></div><div class="msg-body">【卓予定とカレンダーの照合】相違が 3 件あります<br>・TAKU-7 「月夜の茶会」 カレンダーに 11/14(土) 13:00 の予定があるのに、状況が「日程調整待ち」です<br>・カレンダーの「星降る街」（11/24(火) 21:00〜）に当たる卓予定がありません<br>・TAKU-9 「白い鳥籠」 流卓予定日（12/31(木)）まであと14日です。続けるか流卓にするかを決めてください</div></div>
+<ul><li>カレンダーとの相違のほかの書き方：「状況が「○○」ですが、今後の予定がありません。終わっていれば完了にしてください」「GM がカレンダーは「…」、Notion は「…」です」「PL がカレンダーは「…」、Notion は「…」です」「繰り返し予定があります。…1回ずつの予定にしてください」</li><li>流卓予定日の当日：「流卓予定日（…）を過ぎましたが、状況が「…」のままです。流卓にするか、日付を見直してください」</li><li>過ぎて30日：「流卓予定日（…）から30日たちましたが、まだ状況が「…」のままです」</li><li><code>/卓 照合</code> で何も無いとき：「卓予定とカレンダーに相違はありません。」</li></ul>
+<h3 id="s6-5">6.5 コマンドの返事（主なもの）</h3>
+<p><strong><code>/卓 連携</code></strong></p>
+<div class="msg"><div class="msg-head"><span class="avatar" aria-hidden="true"></span><span class="who">卓通知Bot</span><span class="tag">アプリ</span></div><div class="msg-body">TAKU-12「霧の館」を #卓チャンネル と連携しました。<br>参加者を追加:<br>　はなこ ＝ <span class="mention">@はなこ</span><br>　たろう ＝ <span class="mention">@Taro</span><br>カレンダーから「セッション日程」に取り込みました: 10/17(土) 21:00、10/25(日) 21:00<br>やることリストに「霧の館準備」を追加しました。<br>CS期日を 10/15(木) にしました。</div></div>
+<p>状況に応じて、「新しく追加した参加者はいません。」「CS の提出は無しにしました。…」「CS の提出を「要る」に戻しました。」、決められなかった人の一覧、3.1 の注意（⚠️）を足す。</p>
+<div class="scroll"><table><thead><tr><th>コマンド</th><th>返事</th></tr></thead><tbody><tr><td><code>/卓 チャンネル</code></td><td>TAKU-12「霧の館」を #霧の館 とつなぎました（チャンネルの作成: 2025/10/01(水)）。流卓予定日を 2026/10/01(木) にしました（チャンネルを作ってから365日後）。流卓予定日になっても日程が決まっていなければ、GM に知らせます（PL には、その知らせの［PL に知らせる］を押したときだけ知らせます）。…</td></tr><tr><td><code>/卓 秘匿</code></td><td>たろう さんの秘匿の送り先を #送り先 に設定しました。CSの催促はここに送り、ここに貼られた CS の URL も提出として受け付けます。</td></tr><tr><td><code>/卓 部屋登録</code></td><td>URLを登録しました。前日のお知らせ（10/16(金) 20:00）に付けて送ります。今すぐ送るときは /卓 部屋送信 を使ってください。（場合ごとの書き方は 3.2）</td></tr><tr><td><code>/卓 部屋送信</code></td><td>#卓チャンネル にセッションルームの URL を送りました。開始30分前のお知らせには URL を付けません。</td></tr><tr><td><code>/卓 提出</code></td><td>たろう さんを提出済み（未提出）にしました。</td></tr><tr><td><code>/卓 状況</code></td><td>1行目に <code><strong>TAKU-12「霧の館」</strong> 状況: …</code>、続けてセッション・CS期日・セッションルーム、空行のあと参加者ごとに <code>✅ はなこ https://…</code> ／ <code>❌ たろう</code></td></tr><tr><td><code>/卓 日程</code></td><td>「霧の館 2日目 10/25(日) 21:00（中止）」にしました。次の確認（10分以内）から通知に反映します。（追加は「「霧の館 3日目 11/1(日) 21:00」を追加しました。…」）</td></tr><tr><td><code>/卓 終了</code></td><td>TAKU-12「霧の館」を完了にして、卓報告を作成しました。お疲れさまでした！ ／「セッション日程」の 2 回分を Notion のゴミ箱に移しました（Notion の画面から元に戻せます）。</td></tr><tr><td><code>/卓 既定管理先</code></td><td>既定の管理先を #… にしました。…（空で実行したら「既定の管理先を消しました。… DM で届きます。」）</td></tr><tr><td><code>/卓 照合</code></td><td>6.4 の照合結果と同じ</td></tr></tbody></table></div>
+<p><strong>エラーのときの返事（主なもの）</strong></p>
+<ul><li>このコマンドはGM専用です ／ このボタンはGM専用です</li><li>卓「…」が見つかりませんでした。「卓」欄では、出てくる候補から選んでください。</li><li>CS期日「…」を読み取れませんでした。前日・2日前・1週間前、または 20261020、10/20 21:00 のように入力してください。</li><li>初回の日程が無いので「前日」を日付にできません。…</li><li>日時「…」を読み取れませんでした。20261101 2100 や 11/1 21:00 のように入力してください。</li><li>その人はこの卓の参加者に登録されていません。…</li><li>セッションルームのURL（https://ccfolia.com/rooms/... など）を入力してください</li><li>セッションルームの URL がまだ登録されていません。先に /卓 部屋登録 で登録してください。</li><li>送り先がありません。… ／ Bot が #… を見られないので送れません。…</li><li>この卓には参加者が登録されていないので、メンションを付けられません。…</li><li>エラーが発生しました: （内容）／ 送れませんでした: （内容）</li></ul>
+<h2 id="s7">7. 状況（卓予定の「状況」）の動き</h2>
+<div class="scroll"><pre class="flow">（日程決定前）──/卓 連携──▶ CS待ち ──全員提出──▶ セッション開始待ち ──初回の開始──▶ セッション中 ──/卓 終了──▶ 完了
+       │                                          ▲
+       └──/卓 連携（cs提出: いいえ）───────────────┘</pre></div>
+<ul><li><code>/卓 チャンネル</code> と <code>/卓 部屋登録</code> では状況を変えない（部屋は CS より先に用意する運用のため）。</li><li>流卓にするのは GM が Notion で行う（Bot は流卓にしない）。</li></ul>
+<h2 id="s8">8. セットアップ画面（<code>/setup</code>）</h2>
+<p>Bot の URL の末尾に <code>/setup</code> を付けて開く。ユーザー名は何でもよく、パスワードは <code>SETUP_PASSWORD</code>。<code>SETUP_PASSWORD</code> が無いときは、登録のしかたの手順を表示する。</p>
+<div class="scroll"><table><thead><tr><th>区切り</th><th>内容</th></tr></thead><tbody><tr><td>1. 秘密の値</td><td>登録されているかを ✅／❌ で表示</td></tr><tr><td>2. Notion</td><td>トークンで接続できるか、5つの DB の指定（やることリスト・卓報告は無くてもよい）。「DB を5つ作る」と「すでにある DB を使う」（DB の URL を貼る）</td></tr><tr><td>3. Discord</td><td>Bot に接続できるか、Interactions Endpoint URL、コマンドの登録、Bot が入っているサーバー。ボタンで URL の設定とコマンドの登録をする</td></tr><tr><td>4. Google カレンダー</td><td>URL があるときだけ、読めるかどうか</td></tr><tr><td>5. 設定</td><td>9. の設定。プルダウン・チェック・1行に1つの欄・項目ごとの欄で入れる（JSON やカンマ区切りを手で書かない）。CS として受け付けるサイトの一覧（対応システムつき）を見られる</td></tr><tr><td>6. 文面</td><td>送る文面を、送り先ごとのまとまり（プレイヤー向け・GM 向け・照合結果・卓情報・やることリスト）で表示。<code>{title}</code> などの差し込みボタンと、見本の値を入れた「送られる例」つき。空欄にすると既定に戻る</td></tr></tbody></table></div>
+<ul><li><code>wrangler.toml</code> で決めてある項目は、今の値を表示して入力できないようにし、画面で変えられるようにする方法を添える。</li><li><strong>DB を5つ作る</strong>：親ページに案内とコネクトの足し方（コールアウト）を書き、「卓の管理に使う DB」（卓予定・やることリスト・卓報告）と「Bot 専用の DB」（卓参加者・セッション日程）の見出しで分けて作る。「卓の管理に使う DB」の下には、すでにある DB を使う方法（セットアップ画面へのリンク）と、Bot が使う列の名前と種類の一覧（折りたたみ）を書く。リレーション・「CS提出」の列も作る。</li></ul>
+<h2 id="s9">9. 設定</h2>
+<p>セットアップ画面の「設定」で変える（KV に保存）。<code>wrangler.toml</code> の <code>[vars]</code> に書いた値があれば、そちらが優先。書かなければ既定値。</p>
+<div class="scroll"><table><thead><tr><th>設定</th><th>既定値</th><th>中身</th></tr></thead><tbody><tr><td><code>TIMEZONE</code></td><td>Asia/Tokyo</td><td>日時の計算に使うタイムゾーン（夏時間にも対応）。カレンダーの TZID 付きの時刻はその地域の時刻として読む</td></tr><tr><td><code>CS_REMIND_DAYS</code></td><td>7,3,0</td><td>CS の催促を送る日（期日の何日前。0 は当日の朝）</td></tr><tr><td><code>EVENING_HOUR</code> / <code>MORNING_HOUR</code></td><td>20 / 8</td><td>催促・前日のお知らせの時刻／当日の催促の時刻</td></tr><tr><td><code>ROOM_LEAD_MINUTES</code></td><td>30</td><td>初回の開始の何分前に開始前のお知らせを送るか</td></tr><tr><td><code>QUIET_HOURS</code></td><td>23-8</td><td>参加者向けの通知を送らない時間帯（<code>off</code> で止めない）</td></tr><tr><td><code>AUDIT_HOUR</code></td><td>9</td><td>毎朝の確認の時刻</td></tr><tr><td><code>PREP_TASK_DAYS_BEFORE</code></td><td>7</td><td>準備タスクの期日（初回の何日前）</td></tr><tr><td><code>NIGHT_SESSION_FROM_HOUR</code> / <code>DAY_SESSION_END_HOUR</code></td><td>18 / 18</td><td>回の終了の決まり（この時刻以降に始まる回は24時まで、それより前はこの時刻まで）</td></tr><tr><td><code>DROP_NOTICE_DAYS_BEFORE</code> / <code>DROP_RENOTICE_DAYS_AFTER</code></td><td>14 / 30</td><td>流卓予定日の何日前に知らせるか／過ぎて何日たったらもう一度知らせるか</td></tr><tr><td><code>STALE_AFTER_DAYS</code></td><td>365</td><td>仮立卓の流卓予定日が空のとき、チャンネル作成から何日後を入れるか（［続ける］で延ばす日数も同じ）</td></tr><tr><td><code>CS_EXTRA_DOMAINS</code></td><td>—</td><td>CS として受け付けるサイトを足す</td></tr><tr><td><code>REPORT_SYSTEM_RENAMES</code> / <code>REPORT_SYSTEMS</code> / <code>REPORT_SYSTEM_OTHER</code></td><td>— / — / 他システム</td><td>卓報告の「システム」の書き換え表・選択肢・選択肢に無いときの名前。表も選択肢も無ければ卓予定の名前をそのまま使う</td></tr><tr><td><code>NOTION_FIELDS</code></td><td>—</td><td>列名の読み替え（DB ごとに一部だけ書ける。既定の列名は <code>src/config.ts</code> の <code>FIELDS</code>）</td></tr><tr><td><code>NOTION_STATUSES</code> / <code>STATUSES_BEFORE_SCHEDULE</code></td><td>—</td><td>「状況」の値の読み替え／日程決定前とみなす状況</td></tr><tr><td><code>GM_ROLES</code></td><td>KP,GM,DL,SKP</td><td>自分が回す卓とみなす「PL/GM」の値</td></tr><tr><td><code>TODO_CATEGORY</code> / <code>TODO_STATUS_TODO</code> / <code>TODO_STATUS_DONE</code></td><td>TRPG / 未着手 / 完了</td><td>やることリストで使う値</td></tr><tr><td><code>MESSAGES</code></td><td>—</td><td>送る文面の差し替え（セットアップ画面の「文面」で変える。既定と違う項目だけ保存する。既定の文面は <code>src/messages.ts</code> の <code>TEMPLATES</code>）</td></tr></tbody></table></div>
+<h2 id="s10">10. 秘密の値・保存するもの・制約</h2>
+<h3 id="s10-1">秘密の値（Deploy to Cloudflare ボタンの画面か <code>wrangler secret put</code>）</h3>
+<p><code>DISCORD_APPLICATION_ID</code> / <code>DISCORD_PUBLIC_KEY</code> / <code>DISCORD_BOT_TOKEN</code> / <code>GM_USER_ID</code> / <code>NOTION_TOKEN</code> / <code>CALENDAR_ICS_URL</code>（使わないなら <code>none</code>） / <code>SETUP_PASSWORD</code>（セットアップ画面のパスワード）</p>
+<p>保管場所・確認方法・作り直し方は README の「秘密の値の扱い」を参照。</p>
+<h3 id="s10-2">Bot が覚えておくもの（Cloudflare KV）</h3>
+<div class="scroll"><table><thead><tr><th>もの</th><th>残す期間</th></tr></thead><tbody><tr><td>送った通知の記録（催促・前日のお知らせなど。二重送信の防止）</td><td>60日</td></tr><tr><td>セッションルームの URL を送った・開始前のお知らせを送った</td><td>期限なし（<code>/卓 終了</code> で URL の記録は消す）</td></tr><tr><td>CS 提出が要らない卓の印</td><td>期限なし</td></tr><tr><td>準備タスクの処理済み</td><td>60日</td></tr><tr><td>流卓予定日の知らせの段階</td><td>400日</td></tr><tr><td>仮立卓のリマインドの記録</td><td>期限なし</td></tr><tr><td>既定の管理先、セットアップ画面で決めた設定・DB の ID・文面</td><td>期限なし</td></tr><tr><td>候補表示用の卓・サーバーの一覧</td><td>1分・10分</td></tr></tbody></table></div>
+<h3 id="s10-3">制約</h3>
+<ul><li>無料プランの外部リクエスト上限（1回50件）のため、1回の確認で読むチャンネルは20件まで。足りなければ次の回に回す。</li><li>各チャンネルは直近50件のメッセージだけを見る。</li><li>テキストで貼られた CS は検出しない。</li><li>カレンダーの繰り返し予定は、2回目以降を読めない（照合で知らせる）。</li><li>秘匿の送り先に DM は使えない。</li><li>プライベートチャンネル・非公開スレッドは、Bot をメンバーに追加しないと読み書きできない。</li><li>「卓」欄の候補が出ないとき・コマンドを登録し直したあとは、Discord を完全に終了して開き直す。</li></ul></main>
+  </div>
+</div>
+
+</body>
+</html>
