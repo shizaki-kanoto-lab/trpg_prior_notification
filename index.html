@@ -92,7 +92,7 @@ html { color-scheme: light; } body { margin: 0; }
   <header class="top">
     <div class="eyebrow">TRPG 卓の Discord Bot ／ 仕様書</div>
     <h1>卓通知Bot 仕様書</h1>
-    <p class="lead">GM が回す TRPG 卓の CS 提出の管理、前日のお知らせ、セッションルームの URL の共有、Notion の記録の更新を自動で行う Discord Bot の仕様書です。<br>セットアップの手順は <a href="https://github.com/shizaki-kanoto-lab/trpg_prior_notification#readme">README</a> を見てください。</p>
+    <p class="lead">TRPG 卓の CS 提出の管理、前日のお知らせ、セッションルームの URL の共有、Notion の記録の更新を自動で行う Discord Bot の仕様書です。<br>セットアップの手順は <a href="https://github.com/shizaki-kanoto-lab/trpg_prior_notification#readme">README</a> を見てください。</p>
     <dl class="facts"><div><dt>動く場所</dt><dd>Cloudflare Workers（無料プラン）</dd></div><div><dt>データの置き場</dt><dd>Notion（卓予定・卓参加者・セッション日程・やることリスト・卓報告）</dd></div><div><dt>日程の照合先</dt><dd>Google カレンダー（iCal の非公開 URL で読み取り専用。使わなくてもよい）</dd></div><div><dt>時刻</dt><dd>すべて設定のタイムゾーン（既定は日本時間）の現地時刻で扱う</dd></div><div><dt>使う人</dt><dd>GM 1人につき Bot を1つ動かす。コマンドとボタンを使えるのは GM（<code>GM_USER_ID</code>）だけ</dd></div><div><dt>動き方</dt><dd>Discord のスラッシュコマンド <code>/卓</code>、10分おきの定期確認、毎朝9時の確認、セットアップ画面（<code>/setup</code>）</dd></div></dl>
   </header>
   <div class="layout">
