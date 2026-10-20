@@ -27,17 +27,19 @@
   --accent: #5cc2bb; --accent-soft: #173533; --mention: #c9cdfb; --mention-bg: #3a3f73;
   --msg-bg: #232833; --link: #6fb6ff; --warn: #f0b45c; color-scheme: dark; }
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.8; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.8; line-break: strict; }
+h1, h2, h3, .lead, .facts dd, main p, main li, td, .msg-body { word-break: auto-phrase; }
 .wrap { max-width: 1180px; margin: 0 auto; padding-block: 32px 64px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 header.top { display: grid; gap: 14px; margin-bottom: 28px; }
 .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; color: var(--accent); }
 h1 { font-family: var(--display); font-weight: 700; font-size: clamp(28px, 4vw, 40px); line-height: 1.3; margin: 0; text-wrap: balance; }
-.lead { max-width: 46em; margin: 0; color: var(--muted); }
-.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0; border: 1px solid var(--line);
-  border-radius: 10px; background: var(--surface); overflow: hidden; }
-.facts ul { display: contents; }
-.facts li { list-style: none; padding: 12px 16px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); font-size: 14px; }
+.lead { max-width: 56em; margin: 0; color: var(--muted); }
+.facts { margin: 0; border-top: 1px solid var(--line); max-width: 56em; }
+.facts > div { display: grid; grid-template-columns: 7em minmax(0, 1fr); gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.facts dt { font-weight: 600; color: var(--muted); font-size: 14px; }
+.facts dd { margin: 0; font-size: 14px; }
+@media (max-width: 440px) { .facts > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
 .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 40px; align-items: start; }
 nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); max-height: calc(100vh - 32px); overflow: auto; font-size: 14px; }
 nav.toc p { margin: 0 0 8px; font-family: var(--mono); font-size: 12px; letter-spacing: .08em; color: var(--muted); }
@@ -90,10 +92,8 @@ html { color-scheme: light; } body { margin: 0; }
   <header class="top">
     <div class="eyebrow">TRPG 卓の Discord Bot ／ 仕様書</div>
     <h1>卓通知Bot 仕様書</h1>
-    <p class="lead">GM が回す TRPG 卓について、CS 提出の管理、セッション前のお知らせ、セッションルーム（ココフォリアなど）の URL の共有、Notion の記録の更新を自動で行う Discord Bot の仕様です。セットアップの手順は README.md を見てください。</p>
-    <div class="facts">
-<ul><li>動く場所：Cloudflare Workers（無料プラン）</li><li>データの置き場：Notion（卓予定・卓参加者・セッション日程・やることリスト・卓報告）</li><li>日程の照合先：Google カレンダー（iCal の非公開 URL で読み取り専用。使わなくてもよい）</li><li>時刻：すべて設定のタイムゾーン（既定は日本時間）の現地時刻で扱う</li><li>使う人：GM 1人につき Bot を1つ動かす。コマンドとボタンを使えるのは GM（<code>GM_USER_ID</code>）だけ</li><li>動き方：Discord のスラッシュコマンド <code>/卓</code>、10分おきの定期確認、毎朝9時の確認、セットアップ画面（<code>/setup</code>）</li></ul>
-</div>
+    <p class="lead">GM が回す TRPG 卓について、CS 提出の管理、セッション前のお知らせ、セッションルーム（ココフォリアなど）の URL の共有、Notion の記録の更新を自動で行う Discord Bot の仕様です。セットアップの手順は <a href="https://github.com/shizaki-kanoto-lab/trpg_prior_notification#readme">README</a> を見てください。</p>
+    <dl class="facts"><div><dt>動く場所</dt><dd>Cloudflare Workers（無料プラン）</dd></div><div><dt>データの置き場</dt><dd>Notion（卓予定・卓参加者・セッション日程・やることリスト・卓報告）</dd></div><div><dt>日程の照合先</dt><dd>Google カレンダー（iCal の非公開 URL で読み取り専用。使わなくてもよい）</dd></div><div><dt>時刻</dt><dd>すべて設定のタイムゾーン（既定は日本時間）の現地時刻で扱う</dd></div><div><dt>使う人</dt><dd>GM 1人につき Bot を1つ動かす。コマンドとボタンを使えるのは GM（<code>GM_USER_ID</code>）だけ</dd></div><div><dt>動き方</dt><dd>Discord のスラッシュコマンド <code>/卓</code>、10分おきの定期確認、毎朝9時の確認、セットアップ画面（<code>/setup</code>）</dd></div></dl>
   </header>
   <div class="layout">
     <nav class="toc" aria-label="目次"><p>目次</p><ol>
